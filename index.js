@@ -78,6 +78,40 @@ client.on('interactionCreate', async (interaction) => {
        
      
     }
+    if (commandName == 'manga-search') {
+        interaction.deferReply()
+        let query = options.getString('search')
+        let content = await fetch(`https://api.consumet.org/manga/mangadex/${query}`)
+        content = await content.json()
+        let id = content.results[0].id
+        let details = new Object()
+        content = await fetch(`https://api.consumet.org/manga/mangadex/info/${id}`)
+        content = await content.json()
+        details['name'] = content.title.replaceAll('[', '').replaceAll(']','')
+        details['desc'] = content.description.en
+        details['genres'] = content.genres.join(', ')
+        details['themes'] = content.themes.join(', ')
+        details['status'] = content.status
+        details['release_date'] = content.releaseDate
+        content = await fetch(`https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`)
+        content = await content.json()
+        details['cover'] = `https://uploads.mangadex.org/covers/${id}/${content.data.relationships[2].attributes.fileName}`
+        details['mangaka'] = content.data.relationships[0].attributes.name
+        const embed = new discord.EmbedBuilder()
+        embed.setFooter({iconURL: interaction.user.avatarURL({format: 'png'}), text: `Requested by ${interaction.user.username}`})
+        embed.setAuthor({iconURL: client.user.avatarURL({format: 'png'}), name: 'Mio'})
+        embed.setColor('#a9c3de')
+        embed.setTitle(details.name)
+        embed.setDescription(details.desc)
+        embed.addFields(
+            {name:'genres', value: details.genres, inline: true},
+            {name: 'themes', value:details.themes, inline: true},
+            {name:'status', value: details.status, inline: true},
+            {name:'Rlease Date', value:details.release_date.toString(), inline: true},
+            {name: 'mangaka', value:details.mangaka})
+        embed.setImage(details.cover)
+        interaction.editReply({embeds: [embed]})
+    }
 })
 
 
@@ -86,14 +120,15 @@ client.login(token)
 client.on('ready', async () => {
     client.user.setStatus('idle')
     client.user.setActivity(`J-POP`,  { type: discord.ActivityType.Listening })
+//     const commands = client.application.commands
 // commands?.create({
-//     name: 'anime-search',
-//     description: 'search for an anime',
+//     name: 'manga-search',
+//     description: 'search for an manga',
 //     options: [{
 //         name: 'search',
 //         type: 3,
 //         required: true,
-//         description: 'the anime you want to search for'
+//         description: 'the manga you want to search for'
 
 //     }]
 // })
