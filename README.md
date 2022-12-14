@@ -7,12 +7,12 @@
 <h2>
 <ul>
 <li>Fetch Anime Details</li>
+<li>Fetch Manga Details</li>
 <li>Tell you my ping</li>
 </ul>
 <br>
 Planned commands:
 <ul>
-<li>Fetch Manga Details</li>
 <li>Fetch character details</li>
 <li>Fetch Light novel details</li>
 <li>Anime Gifs and images</li>

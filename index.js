@@ -1,4 +1,6 @@
 const token = (require('./config.json')).token
+const express = require('express')
+const app = express()
 const {Client, GatewayIntentBits, discordSort} = require('discord.js')
 const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]})
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -29,7 +31,6 @@ client.on('interactionCreate', async (interaction) => {
         const embed = new discord.EmbedBuilder()
         let content2 = await fetch(`https://api.consumet.org/anime/enime/${query}`)
         content2 = await content2.json()
-        console.log(content)
         embed.setColor('#a9c3de')
         embed.setImage(content.image)
       
@@ -83,11 +84,17 @@ client.on('interactionCreate', async (interaction) => {
         let query = options.getString('search')
         let content = await fetch(`https://api.consumet.org/manga/mangadex/${query}`)
         content = await content.json()
+      
+        if (content.results.length === 0) {
+            await sleep(3000)
+            interaction.editReply(`Nothing found! <:mio_shocked:1044958421318897724> `)
+            return
+        }
         let id = content.results[0].id
         let details = new Object()
         content = await fetch(`https://api.consumet.org/manga/mangadex/info/${id}`)
         content = await content.json()
-        details['name'] = content.title.replaceAll('[', '').replaceAll(']','')
+        details['name'] = content.title
         details['desc'] = content.description.en
         details['genres'] = content.genres.join(', ')
         details['themes'] = content.themes.join(', ')
@@ -97,6 +104,17 @@ client.on('interactionCreate', async (interaction) => {
         content = await content.json()
         details['cover'] = `https://uploads.mangadex.org/covers/${id}/${content.data.relationships[2].attributes.fileName}`
         details['mangaka'] = content.data.relationships[0].attributes.name
+        details['amz'] = content.data.attributes.links.amz
+        details['mal'] = content.data.attributes.links.mal
+        if (details.genres == null || details.genres.length == 0) details.genres = 'Title unavailable'
+        if (details.name == null || details.name.length == 0) details.name = 'unavailable'
+        if (details.desc == null || details.desc.length == 0) details.desc = 'unavailable'
+        if (details.themes == null || details.themes.length == 0) details.themes = 'unavailable'
+        if (details.status == null || details.status.length == 0) details.status = 'unavailable'
+        if (details.release_date == null || details.release_date.length == 0)  details.release_date = 'unavailable'
+        if (details.amz == null || details.amz.length == 0) details.amz = 'unavailable'
+        if (details.mal == null || details.mal.length == 0) details.mal = 'unavailable'
+        console.log(details)
         const embed = new discord.EmbedBuilder()
         embed.setFooter({iconURL: interaction.user.avatarURL({format: 'png'}), text: `Requested by ${interaction.user.username}`})
         embed.setAuthor({iconURL: client.user.avatarURL({format: 'png'}), name: 'Mio'})
@@ -107,14 +125,39 @@ client.on('interactionCreate', async (interaction) => {
             {name:'genres', value: details.genres, inline: true},
             {name: 'themes', value:details.themes, inline: true},
             {name:'status', value: details.status, inline: true},
-            {name:'Rlease Date', value:details.release_date.toString(), inline: true},
+            {name:'Release Date', value:details.release_date.toString(), inline: true},
             {name: 'mangaka', value:details.mangaka})
+            
         embed.setImage(details.cover)
-        interaction.editReply({embeds: [embed]})
+        const row = new discord.ActionRowBuilder()
+        if (details.mal !== 'unavailable') {
+			row.addComponents(
+				new discord.ButtonBuilder()
+					.setLabel('MyAnimeList')
+                    .setURL(`https://myanimelist.net/manga/${details.mal}`)
+					.setStyle(discord.ButtonStyle.Link)
+                    .setEmoji(`<:MAL:1044954826452246569>`)
+                    )}
+        if (details.amz !== 'unavailable') {
+            row.addComponents(
+				new discord.ButtonBuilder()
+					.setLabel('Amazon')
+                    .setURL(`${details.amz}`)
+					.setStyle(discord.ButtonStyle.Link)
+                    .setEmoji(`<:amz:1046790998270939178>`), 
+)} 
+            await sleep(3000)
+            if (row.components.length === 0) {
+                interaction.editReply({embeds: [embed]})
+                return
+            }
+        interaction.editReply({embeds: [embed], components: [row]})
     }
 })
 
-
+app.get('/', async (req, res) => {
+    res.sendStatus(200)
+})
 
 client.login(token)
 client.on('ready', async () => {
@@ -137,4 +180,8 @@ console.log('Client running')
 
 process.on('uncaughtException', (err) => {
     console.log(err)
+})
+
+app.listen(3000, async () => {
+    console.log(`Listening to 3000`)
 })
