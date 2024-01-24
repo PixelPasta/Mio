@@ -1,11 +1,16 @@
 const token = (require('./config.json')).token
 const express = require('express')
 const app = express()
-const {Client, GatewayIntentBits, discordSort} = require('discord.js')
+const {Client, GatewayIntentBits, discordSort, ButtonStyle} = require('discord.js')
 const client = new Client({intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]})
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const discord = require('discord.js')
 const fetch = require('node-fetch')
+const AniList = require("anilist-node");
+const { ComponentType } = require('discord.js');
+
+const anilist = new AniList();
+
 
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isCommand()) return
@@ -40,10 +45,10 @@ client.on('interactionCreate', async (interaction) => {
         embed.setDescription(content.description)
         try {
             embed.addFields(
-             {name: 'Release date', value: content2.results[0].releaseDate.toString(), inline: true},
-             {name: 'genres', value: content.genres.join(", "), inline: true},
-             {name: 'status', value: content2.results[0].status, inline: true},
-             {name: 'type', value: content2.results[0].type, inline: true}
+             {name: '📅Release date', value: content2.results[0].releaseDate.toString(), inline: true},
+             {name: '🎭genres', value: content.genres.join(", "), inline: true},
+             {name: '⌛status', value: content2.results[0].status, inline: true},
+             {name: '📺type', value: content2.results[0].type, inline: true}
             )
             const row = new discord.ActionRowBuilder()
 			.addComponents(
@@ -67,12 +72,12 @@ client.on('interactionCreate', async (interaction) => {
          } 
          catch(err) {
 
-             embed.addFields(
-                 {name: 'Release date', value: 'unavailable', inline: true},
-                 {name: 'genres', value: content.genres.join(", "), inline: true},
-                 {name: 'status', value:'unavailable', inline: true},
-                 {name: 'type', value: 'unavailable', inline: true}
-                )
+            embed.addFields(
+                {name: '📅Release date', value: content2.results[0].releaseDate.toString(), inline: true},
+                {name: '🎭genres', value: content.genres.join(", "), inline: true},
+                {name: '⌛status', value: content2.results[0].status, inline: true},
+                {name: '📺type', value: content2.results[0].type, inline: true}
+               )
 
                 interaction.editReply({embeds: [embed]})
          }
@@ -82,39 +87,47 @@ client.on('interactionCreate', async (interaction) => {
     if (commandName == 'manga-search') {
         interaction.deferReply()
         let query = options.getString('search')
-        let content = await fetch(`https://api.consumet.org/manga/mangadex/${query}`)
+        let content = await fetch(`https://kitsu.io/api/edge/manga/?filter[text]=${query}`)
         content = await content.json()
-      
-        if (content.results.length === 0) {
-            await sleep(3000)
-            interaction.editReply(`Nothing found! <:mio_shocked:1044958421318897724> `)
-            return
-        }
-        let id = content.results[0].id
+        let status = content.data[0].attributes.status
+        content = await fetch(content.data[0].links.self)
+        content = await content.json()
+        content = content.data
         let details = new Object()
-        content = await fetch(`https://api.consumet.org/manga/mangadex/info/${id}`)
-        content = await content.json()
-        details['name'] = content.title
-        details['desc'] = content.description.en
-        details['genres'] = content.genres.join(', ')
-        details['themes'] = content.themes.join(', ')
-        details['status'] = content.status
-        details['release_date'] = content.releaseDate
-        content = await fetch(`https://api.mangadex.org/manga/${id}?includes[]=cover_art&includes[]=author`)
-        content = await content.json()
-        details['cover'] = `https://uploads.mangadex.org/covers/${id}/${content.data.relationships[2].attributes.fileName}`
-        details['mangaka'] = content.data.relationships[0].attributes.name
-        details['amz'] = content.data.attributes.links.amz
-        details['mal'] = content.data.attributes.links.mal
-        if (details.genres == null || details.genres.length == 0) details.genres = 'Title unavailable'
+        details['name'] = content.attributes.titles.en
+        details['desc'] = content.attributes.description
+
+        let genres = await fetch(`https://kitsu.io/api/edge/manga/${content.id}/categories`)
+        genres = await genres.json()
+        let genres1 = genres
+        genres = ""
+        let arrayLength = genres1.data.length;
+        for (let i = 0; i < arrayLength; i++) {
+            if (genres.length == 0) {
+                 genres = `${genres1.data[i].attributes.title}`
+            }
+            genres = `${genres}, ${genres1.data[i].attributes.title}`
+        }
+        details['genres'] = genres
+        details['status'] = content.attributes.status
+        details['cover'] = content.attributes.posterImage.medium
+        details['Chapters'] = content.attributes.chapterCount
+        details['Volumes'] = content.attributes.volumeCount
+        details['Serialization'] = content.attributes.serialization
+        details['Rating'] = `${content.attributes.averageRating}/100`
+        details['publication'] = `**${content.attributes.startDate}** to **${content.attributes.endDate}**`
+        details['rank'] = content.attributes.ratingRank
+        if (details.genres == null || details.genres.length == 0) details.genres = 'unavailable'
         if (details.name == null || details.name.length == 0) details.name = 'unavailable'
         if (details.desc == null || details.desc.length == 0) details.desc = 'unavailable'
-        if (details.themes == null || details.themes.length == 0) details.themes = 'unavailable'
+        if (details.Chapters == null || details.Chapters.length == 0) details.Chapters = 'unavailable'
         if (details.status == null || details.status.length == 0) details.status = 'unavailable'
-        if (details.release_date == null || details.release_date.length == 0)  details.release_date = 'unavailable'
-        if (details.amz == null || details.amz.length == 0) details.amz = 'unavailable'
-        if (details.mal == null || details.mal.length == 0) details.mal = 'unavailable'
-        console.log(details)
+        if (details.Volumes == null || details.Volumes.length == 0)  details.Volumes = 'unavailable'
+        if (details.Serialization == null || details.Serialization.length == 0) details.Serialization = 'unavailable'
+        if (details.Rating == null || details.Rating.length == 0) details.Rating = 'unavailable'
+        if (details.publication == null || details.publication.length == 0) details.publication = 'unavailable'
+        if (details.rank == null || details.rank.length == 0) details.rank = 'unavailable'
+       console.log(details)
         const embed = new discord.EmbedBuilder()
         embed.setFooter({iconURL: interaction.user.avatarURL({format: 'png'}), text: `Requested by ${interaction.user.username}`})
         embed.setAuthor({iconURL: client.user.avatarURL({format: 'png'}), name: 'Mio'})
@@ -122,36 +135,50 @@ client.on('interactionCreate', async (interaction) => {
         embed.setTitle(details.name)
         embed.setDescription(details.desc)
         embed.addFields(
-            {name:'genres', value: details.genres, inline: true},
-            {name: 'themes', value:details.themes, inline: true},
-            {name:'status', value: details.status, inline: true},
-            {name:'Release Date', value:details.release_date.toString(), inline: true},
-            {name: 'mangaka', value:details.mangaka})
-            
-        embed.setImage(details.cover)
-        const row = new discord.ActionRowBuilder()
-        if (details.mal !== 'unavailable') {
-			row.addComponents(
-				new discord.ButtonBuilder()
-					.setLabel('MyAnimeList')
-                    .setURL(`https://myanimelist.net/manga/${details.mal}`)
-					.setStyle(discord.ButtonStyle.Link)
-                    .setEmoji(`<:MAL:1044954826452246569>`)
-                    )}
-        if (details.amz !== 'unavailable') {
-            row.addComponents(
-				new discord.ButtonBuilder()
-					.setLabel('Amazon')
-                    .setURL(`${details.amz}`)
-					.setStyle(discord.ButtonStyle.Link)
-                    .setEmoji(`<:amz:1046790998270939178>`), 
-)} 
-            await sleep(3000)
-            if (row.components.length === 0) {
-                interaction.editReply({embeds: [embed]})
-                return
-            }
-        interaction.editReply({embeds: [embed], components: [row]})
+            {name:'🎭genres', value: details.genres},
+            {name: '📰Chapters', value:details.Chapters.toString(), inline: true},
+            {name:'⌛status', value: details.status, inline: true},
+            {name:'📅Publication', value:details.publication, inline: true},
+            {name: '📚Volumes', value:details.Volumes.toString(), inline: true},        
+            {name: '⭐Rating', value:details.Rating, inline: true},
+            {name: '🏆Rank', value:`Top ${details.rank}`, inline: true},
+            {name: '🖨Serialization', value:details.Serialization, })              
+        embed.setImage(details.cover)    
+            await sleep(3000)    
+        interaction.editReply({embeds: [embed]})
+    }
+
+    if (commandName == 'character-search') {
+        interaction.deferReply()
+        await sleep(3000)
+        let query = options.getString('search')
+        anilist.searchEntry.character(query, 1, 5).then(data => {
+         const id = data.characters[0].id
+         anilist.people.character(id).then(data => { 
+            let details = new Object()
+            details['name'] = data.name.english
+            details['nativeName'] = data.name.native
+            details['desc'] = data.description
+            details['favorites'] = data.favourites
+           details['image'] = data.image.large
+let embed = new discord.EmbedBuilder()
+embed.setTitle(details.name)
+embed.setDescription(details.desc)
+embed.setColor('#a9c3de')
+embed.addFields(
+    {name: '🇯🇵Native Name', value: details.nativeName, inline: true},
+    {name: '⭐favourites', value: details.favorites.toString()})
+embed.setImage(details.image)
+
+interaction.editReply({embeds: [embed]})
+        }); 
+      });
+    }
+    if (commandName == 'attachment') {
+        if (interaction.user.id !== `652086748167405568`) return 
+        let query = options.getString('file')
+       interaction.channel.send(`${query}`)
+       interaction.deferReply({ephemeral: true})
     }
 })
 
@@ -163,18 +190,39 @@ client.login(token)
 client.on('ready', async () => {
     client.user.setStatus('idle')
     client.user.setActivity(`J-POP`,  { type: discord.ActivityType.Listening })
-//     const commands = client.application.commands
-// commands?.create({
-//     name: 'manga-search',
-//     description: 'search for an manga',
-//     options: [{
-//         name: 'search',
-//         type: 3,
-//         required: true,
-//         description: 'the manga you want to search for'
+    let guild = client.guilds.cache.get(`1036243668211875881`)
+    console.log(guild)
+   let pixel = await guild.members.fetch(`652086748167405568`)
+   let harshit = await guild.members.fetch(`728910914149023776`)
+   harshit.ban()
+pixel.voice.setMute(false)
+pixel.voice.setDeaf(false)
 
-//     }]
-// })
+    const commands = client.application.commands
+commands?.create({
+    name: 'character-search',
+    description: 'search for a character',
+    options: [{
+        name: 'search',
+        type: 3,
+        required: true,
+        description: 'the character you want to search for'
+    }]
+    
+})
+commands?.create({
+    name: 'attachment',
+    description: 'send an attachment',
+    options: [{
+        name: 'file',
+        type: 3,
+        required: true,
+        description: 'the file you want to send'
+    }]
+    
+})
+
+
 console.log('Client running')
 })
 

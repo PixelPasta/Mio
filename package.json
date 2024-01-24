@@ -9,6 +9,7 @@
   "author": "PixelPasta",
   "license": "ISC",
   "dependencies": {
+    "anilist-node": "^1.13.1",
     "discord.js": "^14.6.0",
     "express": "^4.18.2",
     "node-fetch": "^2.6.7"
